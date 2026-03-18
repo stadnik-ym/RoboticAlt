@@ -12,7 +12,11 @@
 6) підключитись до робота за допомогою SSH (ssh artem@192.168.0.104)
 ### Термінал 1
 `ssh artem@192.168.0.104`
+
+
 Password: `Simka200231`
+
+
 `ros2 run robot_bringup system_launch.py`
 
 
@@ -22,8 +26,14 @@ Password: `Simka200231`
 ### Термінал 2
 
 `ssh artem@192.168.0.104`
+
+
 Password: `Simka200231`
+
+
 `cd ros2_ws`
+
+
 `ros2 run diff_drive_l298n keyboard_teleop_node`
 
 
