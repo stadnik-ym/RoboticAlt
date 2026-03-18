@@ -107,13 +107,13 @@ sudo apt install -y ros-jazzy-ros-base
 Активація ROS 2:
 
 ```~/.bashrc
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 ```
 
 Щоб автоматично завантажити:
 
 ```~/.bashrc
-source /opt/ros/humble/setup.bash" 
+source /opt/ros/jazzy/setup.bash" 
 ```
 
 ---
