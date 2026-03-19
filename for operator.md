@@ -11,7 +11,7 @@
 ### Термінал 1
 
 
-`ros2 launch robot_bringup system_launch.py`
+`ros2 launch robot_bringup system.launch.py`
 
 
 після запуску цієї ноди, цей термінал **не потрібно** чіпати до завершення робіт 
