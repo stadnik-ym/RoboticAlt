@@ -24,7 +24,7 @@
 
 ---
 
-## Якщо порт інший
+## Якщо порт для лідара був змінений
 
 `ros2 run robot_bringup ld06_node --ros-args -p port:=/dev/ttyUSB1`
 
