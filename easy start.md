@@ -11,6 +11,7 @@
 ## Запуск ВСЬОГО робота 
 
 `cd ~/ros2_ws`
+
 `ros2 launch robot_bringup robot_auto.launch.py`
 
 ---
@@ -18,6 +19,7 @@
 ## ОКРЕМО запуск тільки лідара
 
 `cd ~/ros2_ws`
+
 `ros2 run robot_bringup ld06_node`
 
 ---
