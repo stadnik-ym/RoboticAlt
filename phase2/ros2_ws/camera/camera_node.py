@@ -1,166 +1,108 @@
-import rclpy                         # Основна бібліотека ROS2 для Python
-from rclpy.node import Node          # Базовий клас для створення ноди
-from sensor_msgs.msg import Image   # Тип повідомлення для зображень
-from cv_bridge import CvBridge       # Міст між OpenCV та ROS Image
-import cv2                           # Бібліотека OpenCV для роботи з камерою
-
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
+import cv2
+import cv2.aruco as aruco
 
 class CameraNode(Node):
-
     def __init__(self):
-        # Ініціалізація ноди з іменем "camera_node"
         super().__init__('camera_node')
 
-        # === Оголошення параметрів ноди ===
-
-        # Шлях до пристрою камери
-        self.declare_parameter('device', '/dev/video0')
+        self.declare_parameter('device', '/dev/video2')
         self.declare_parameter('fps', 15)
         self.declare_parameter('width', 640)
         self.declare_parameter('height', 480)
-
-        # === Зчитування параметрів ===
 
         device = self.get_parameter('device').get_parameter_value().string_value
         fps = self.get_parameter('fps').get_parameter_value().integer_value
         width = self.get_parameter('width').get_parameter_value().integer_value
         height = self.get_parameter('height').get_parameter_value().integer_value
+        
+        self.aruco_dictionary = aruco.Dictionary_get(aruco.DICT_ARUCO_ORIGINAL)
+        self.aruco_parameters = aruco.DetectorParameters_create()
+        
+        # Додатково: покращення детекції під кутом
+        self.aruco_parameters.adaptiveThreshConstant = 7
+        self.aruco_parameters.minMarkerPerimeterRate = 0.03
 
-        # === Підключення до камери через OpenCV ===
-
-        # Відкриваємо відеопотік
         self.cap = cv2.VideoCapture(device)
-
-        # Встановлюємо роздільну здатність
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-
-        # Встановлюємо FPS
         self.cap.set(cv2.CAP_PROP_FPS, fps)
 
-        # Перевірка, чи камера відкрилась
         if not self.cap.isOpened():
-            self.get_logger().error(f"❌ Не удалось открыть камеру на {device}")
+            self.get_logger().error(f"❌ Не вдалося відкрити камеру")
             raise RuntimeError('Camera open failed')
 
-        # === Налаштування Publisher з QoS ===
-
         from rclpy.qos import QoSProfile
-
-        # Буфер на 10 повідомлень
-        qos_profile = QoSProfile(depth=10)
-
-        # Publisher для сирого зображення
-        self.pub_raw = self.create_publisher(
-            Image,
-            '/image_raw',
-            qos_profile
-        )
-
-        # Publisher для стисненого зображення
-        self.pub_compressed = self.create_publisher(
-            Image,
-            '/image_raw/compressed',
-            qos_profile
-        )
-
-        # Ініціалізація CV Bridge
+        self.pub_raw = self.create_publisher(Image, '/image_raw', QoSProfile(depth=10))
         self.bridge = CvBridge()
-
-        # Лічильник кадрів
         self.frame_count = 0
 
-        # === Таймер для регулярного зчитування кадрів ===
+        self.timer = self.create_timer(1.0 / fps, self.timer_callback)
+        self.get_logger().info("✅ CameraNode запущена (Сумісний режим)")
 
-        # Період виклику callback
-        timer_period = 1.0 / fps
-
-        # Створення таймера
-        self.timer = self.create_timer(
-            timer_period,
-            self.timer_callback
-        )
-
-        self.get_logger().info("✅ CameraNode initialized")
-
-    # Функція, яка викликається таймером
     def timer_callback(self):
-
-        # Зчитуємо кадр з камери
         ret, frame = self.cap.read()
+        if not ret: return
 
-        # Якщо не вдалося зчитати кадр
-        if not ret:
-            self.get_logger().warn("❌ Не удалось получить кадр")
-            return
+        # Отримуємо розміри кадру (зазвичай 640x480)
+        height, width, _ = frame.shape
+        center_f_x = width // 2
+        center_f_y = height // 2
 
-        # === Публікація сирого зображення ===
+        # Малюємо перехрестя центру кадру для візуалізації
+        cv2.line(frame, (center_f_x - 10, center_f_y), (center_f_x + 10, center_f_y), (0, 0, 255), 2)
+        cv2.line(frame, (center_f_x, center_f_y - 10), (center_f_x, center_f_y + 10), (0, 0, 255), 2)
 
-        # Конвертація OpenCV → ROS Image
-        msg = self.bridge.cv2_to_imgmsg(
-            frame,
-            encoding="bgr8"
-        )
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        corners, ids, rejected = aruco.detectMarkers(gray, self.aruco_dictionary, parameters=self.aruco_parameters)
 
-        # Публікація в топік /image_raw
+        if ids is not None:
+            aruco.drawDetectedMarkers(frame, corners, ids)
+            
+            for i in range(len(ids)):
+                # Обчислюємо центр маркера як середнє кутів
+                c = corners[i][0]
+                m_x = int(c[:, 0].mean())
+                m_y = int(c[:, 1].mean())
+
+                # Малюємо точку в центрі маркера
+                cv2.circle(frame, (m_x, m_y), 5, (0, 255, 0), -1)
+
+                # === ОБЧИСЛЕННЯ ЗМІЩЕННЯ ===
+                offset_x = m_x - center_f_x
+                offset_y = center_f_y - m_y  # Інвертуємо Y, щоб "вгору" було плюсом
+
+                # Виводимо дані на екран та в лог
+                text = f"ID: {ids[i][0]} DX: {offset_x} DY: {offset_y}"
+                cv2.putText(frame, text, (m_x + 10, m_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
+                
+                if self.frame_count % 5 == 0:
+                    self.get_logger().info(f"🎯 Marker {ids[i][0]} -> Offset X: {offset_x}, Y: {offset_y}")
+
+        cv2.imshow("ArUco Debug", frame)
+        cv2.waitKey(1)
+
+        msg = self.bridge.cv2_to_imgmsg(frame, encoding="bgr8")
         self.pub_raw.publish(msg)
+        self.frame_count += 1    
 
-        # === Створення JPEG-зображення ===
-
-        # Кодуємо кадр у JPEG (якість 80%)
-        _, buffer = cv2.imencode(
-            '.jpg',
-            frame,
-            [int(cv2.IMWRITE_JPEG_QUALITY), 80]
-        )
-
-        # Конвертація байтів у ROS-повідомлення
-        msg_compressed = self.bridge.cv2_to_imgmsg(
-            buffer.tobytes(),
-            encoding='jpeg'
-        )
-
-        # Публікація стисненого кадру
-        self.pub_compressed.publish(msg_compressed)
-
-        # === Логування ===
-
-        self.frame_count += 1
-
-        # Виводимо повідомлення кожні 15 кадрів
-        if self.frame_count % 15 == 0:
-            self.get_logger().info(
-                f"Publishing frame {self.frame_count}"
-            )
-
-    # Коректне завершення роботи ноди
     def destroy_node(self):
-
-        # Звільняємо камеру
         self.cap.release()
-
-        # Викликаємо стандартний destroy
         super().destroy_node()
 
-
-# Головна функція
 def main():
-
-    # Ініціалізація ROS2
     rclpy.init()
-
-    # Створення ноди
     node = CameraNode()
-
     try:
-        # Запуск обробки callback-функцій
         rclpy.spin(node)
-
     except KeyboardInterrupt:
-        # Завершення через Ctrl+C
         pass
-
     finally:
-        # Коректне завершення
         node.destroy_node()
         rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
