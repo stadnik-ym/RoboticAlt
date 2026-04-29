@@ -27,6 +27,5 @@ jobs:
           rosdep install --from-paths . --ignore-src -y --rosdistro jazzy
 
       - name: build
-        run: colcon build --event-handlers console_direct 
-
+        run: colcon build 
 
