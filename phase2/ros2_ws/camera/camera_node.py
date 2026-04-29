@@ -6,12 +6,14 @@ import cv2
 import cv2.aruco as aruco
 import os
 
+DEV = '/dev/video2'
+
 class CameraNode(Node):
     def __init__(self):
         super().__init__('camera_node')
 
-        # self.declare_parameter('device', '/dev/video2')
-        self.declare_parameter('device', os.environ.get('DEV'))
+        self.declare_parameter('device', DEV)
+        # self.declare_parameter('device', os.environ.get('DEV'))
         self.declare_parameter('fps', 15)
         self.declare_parameter('width', 640)
         self.declare_parameter('height', 480)
