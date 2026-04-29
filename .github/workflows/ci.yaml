@@ -5,13 +5,13 @@ on:
     branches:
       - main
     paths:
-      - 'phase2/**'
+      - 'phase2/ros2_ws/**'
 
   pull_request:
     branches:
       - main
     paths:
-      - 'phase2/**'
+      - 'phase2/ros2_ws/**'
 
 
 jobs:
