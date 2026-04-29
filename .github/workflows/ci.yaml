@@ -1,0 +1,32 @@
+name: simple ci
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '/phase2/*'
+
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '/phase2/*'
+
+
+jobs:
+  test_and_lint: 
+    runs-on: ubuntu-latest
+    container:
+      image: ros:jazzy
+    steps:
+      - uses: actions/checkout@v6
+      - name: install dependecies
+        run: |
+          apt update && rosdep update
+          rosdep install --from-paths . --ignore-src -y
+
+      - name: build
+        run: colcon build --event-handlers console_direct 
+
+
