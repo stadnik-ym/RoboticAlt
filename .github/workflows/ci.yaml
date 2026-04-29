@@ -5,13 +5,13 @@ on:
     branches:
       - main
     paths:
-      - '/phase2/*'
+      - 'phase2/**'
 
   pull_request:
     branches:
       - main
     paths:
-      - '/phase2/*'
+      - 'phase2/**'
 
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
       - name: install dependecies
         run: |
           apt update && rosdep update
-          rosdep install --from-paths . --ignore-src -y
+          rosdep install --from-paths . --ignore-src -y --rosdistro jazzy
 
       - name: build
         run: colcon build --event-handlers console_direct 
